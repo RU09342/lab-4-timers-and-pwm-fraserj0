@@ -1,0 +1,35 @@
+#include <msp430.h>
+
+int HardwarePWM(void)
+{
+  WDTCTL = WDTPW + WDTHOLD;                 // Stop WDT
+  P1DIR |= BIT2;                            // P1.2 output
+  P1SEL |= BIT2;                            // P1.2 for TA0.1 output
+  P1SEL2 = 0;                               // Select default function for P1.2
+  CCR0 = 512-1;                             // PWM Period
+  CCTL1 = OUTMOD_7;                         // CCR1 reset/set
+  CCR1 = 384;                               // CCR1 PWM duty cycle
+  TACTL = TASSEL_2 + MC_1;                  // SMCLK, up mode
+  P1IE   = 0x08; // P1.3 interrupt enabled, interrupt is enabled here, as well as interrupt clear
+  P1IES |= 0x08;
+  P1IFG &= ~BIT3;
+
+  __bis_SR_register(CPUOFF);                // Enter LPM0
+}
+
+#pragma vector=PORT1_VECTOR             //This is what happens when you enter the interrupt
+__interrupt void Port_1(void)
+{
+        unsigned int i;
+        unsigned int time = 0;
+
+          if (TA0CCR1 == 1000){
+            TA0CCR1 = 0;
+          }
+          else{
+            TA0CCR1 = TA0CCR1 + 100;
+          }
+       for(i=0;i<5000;i++);                //Delay
+       P1IFG &= ~BIT3;                      // P1.3 IFG cleared
+}
+

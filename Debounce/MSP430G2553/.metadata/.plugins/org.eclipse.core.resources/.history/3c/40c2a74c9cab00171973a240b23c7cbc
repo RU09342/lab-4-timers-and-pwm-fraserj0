@@ -1,0 +1,26 @@
+#include <msp430.h>
+
+
+int Debouncing()
+{
+   //******GPIO Setup*******//
+    P1DIR |= BIT0 + BIT3;
+    P1OUT &= ~BIT0;
+    P1OUT |= BIT3;
+    P1REN |= BIT3;
+
+   //******Timer1A Setup******//
+    TA1CCTL0 |= CM_2 + CCIS_0 + CAP + CCIE;
+    TA1CTL |=  TASSEL_2 + TAIE + MC_3;
+
+    _BIS_SR(LPM0_bits + GIE);
+}
+
+
+#pragma vector=TIMER1_A0_VECTOR
+__interrupt void Timer1A0(void)
+{
+    P1OUT ^= BIT0;
+    Count++;
+}
+

@@ -1,0 +1,81 @@
+#include <msp430.h>
+
+//Period set to 1000
+int Debouncing()
+{
+    int DC = 0;                //Duty cycle set to 0
+    int Period = 1000-1;
+       WDTCTL = WDTPW + WDTHOLD;
+       P1DIR |= BIT0;             //set P1.4 as output
+       P1SEL |= BIT0;             //set P1.4 as digital IO
+       TA0CCR0 = Period;          //Timer A0 introduced
+
+       P1REN |= BIT3;             //P1.1 Resistor enabled
+       P1OUT |= BIT3;             //P1.1 pull-up resistor
+
+    P1IE |= 0x08;          //enable P1.1 interrupt
+    P1IES |= 0x08;         //select high to low edge
+    P1IFG &= ~0x08;        //clear P1.1 flag
+    P1IFG &= ~0x08;        //clear P2.1 flag
+    TA1CCR0 = 160;         //Timer A1 introduced
+
+    __enable_interrupt();
+      __bis_SR_register(LPM0_bits);            //set interrupts and go to LPM0
+       __no_operation();
+
+       while(1)
+       {}
+}
+
+
+
+//Port1 interrupt
+
+int PB = 0;           //PB is a variable to control the debounce status of push button ( 0 meaning it is not debounced)
+#pragma vector=PORT1_VECTOR
+__interrupt void Port_1(void)
+{
+       if((P1IN & BIT3) != BIT3)         //if P1.1 is pressed
+       {
+              if(DC<999)
+              {
+                     TA1CCTL0 = CCIE;           //Timer-A1 enabled
+                     TA1CTL = TASSEL_2 + MC_2 + TACLR;        //timer-A1 countmode
+
+                     if (PB == 1)                                           // the push button is debounced
+                     {
+                           DC = DC + 100;                           //increment the duty cycle
+                           __low_power_mode_3();
+                     }
+              }
+       }
+
+       //pwm signal
+       TA0CCTL1 = OUTMOD_7;
+       TA0CCR1 = DC;
+       TA0CTL = MC_1 + TASSEL_2 + TACLR;
+       P1IE |= BIT3;
+       P1IFG &= ~BIT3;
+}
+
+//Timer A1 ISR
+#pragma vector = TIMER1_A0_VECTOR
+__interrupt void TIMER1_A0_ISR(void)
+{
+       long x = 5000;
+       x += 160;
+       if (x>=5320)               //2 successive period of 160 added
+       {
+              //button is pressed
+
+              x -= 160;
+              if(x <= 4360)        //6 successive period of 160 subtracted
+              {
+                     //button is released
+                     PB = 1;
+              }
+       }
+}
+
+
+
